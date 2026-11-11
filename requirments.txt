@@ -1,5 +1,5 @@
- streamlit>=1.50
-   plotly>=5.20
-   pandas
-   numpy
-   requests
+streamlit>=1.50
+plotly>=5.20
+pandas
+numpy
+requests
