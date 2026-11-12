@@ -2274,12 +2274,24 @@ def _gh_ensure_branch(conf):
         json=dict(ref=f"refs/heads/{br}", sha=r.json()["object"]["sha"])).raise_for_status()
 
 
+TRACK_TEXT = ["date", "start_utc", "away", "home", "away_goalie", "home_goalie", "goalie_status", "likely",
+              "model", "source", "saved_at", "end"]
+
+
 def _read_csv_text(text):
-    df = pd.read_csv(io.StringIO(text)) if text.strip() else pd.DataFrame(columns=TRACK_COLS)
+    # text columns are read as text even when empty, so results like "REG" can be written into them later
+    df = (pd.read_csv(io.StringIO(text), dtype={c: "object" for c in TRACK_TEXT}) if text.strip()
+          else pd.DataFrame(columns=TRACK_COLS))
     for c in TRACK_COLS:
         if c not in df.columns:
             df[c] = None
-    return df[TRACK_COLS]
+    df = df[TRACK_COLS].copy()
+    for c in TRACK_TEXT:
+        df[c] = df[c].astype("object")
+    for c in TRACK_COLS:
+        if c not in TRACK_TEXT:
+            df[c] = pd.to_numeric(df[c], errors="coerce")
+    return df
 
 
 @st.cache_data(ttl=120, show_spinner=False)
@@ -2375,7 +2387,9 @@ def grade_tracker():
             gid = int(row["game_id"])
             sc = scores.get(gid)
             if sc and sc[0] is not None:
-                df.loc[i, ["final_away", "final_home", "end"]] = [sc[0], sc[1], sc[2]]
+                df.loc[i, "final_away"] = float(sc[0])
+                df.loc[i, "final_home"] = float(sc[1])
+                df.loc[i, "end"] = str(sc[2])
                 changed += 1
     if changed:
         save_tracker(df, f"Grade {changed} WHL predictions")
